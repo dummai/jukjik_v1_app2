@@ -19,6 +19,7 @@ from drug_combination_template import generate_from_excel
 DATA_DIR = Path("/app/data")
 INPUT_DIR = DATA_DIR / "input"
 OUTPUT_DIR = DATA_DIR / "output"
+SAMPLES_DIR = Path("/app/samples")
 
 st.set_page_config(
     page_title="DENV Drug Combination Analysis",
@@ -89,10 +90,10 @@ def sidebar_status():
             if path and Path(path).exists():
                 with open(path, "rb") as f:
                     filename = Path(path).name
-                    st.sidebar.download_button(f"📥 {filename}", f, file_name=filename)
+                    st.sidebar.download_button(f"📥 {filename}", f, file_name=filename, key=f"sidebar_dl_{name}")
     
     st.sidebar.markdown("---")
-    if st.sidebar.button("🔄 Start New Analysis"):
+    if st.sidebar.button("🔄 Start New Analysis", key="sidebar_reset_btn"):
         reset_pipeline()
 
 
@@ -108,13 +109,57 @@ def run_pipeline_tab():
     
     st.markdown("---")
     
-    with st.expander("📋 Step 1: Generate Experiment Template (Optional)", expanded=False):
-        st.markdown("Generate a template file for data entry. This step is optional.")
+    with st.expander("📋 Step 1: Generate Data Entry Template (Optional)", expanded=False):
+        st.markdown("""
+        **Generate an empty data entry template for your experiments.**
         
-        template_config = st.file_uploader("Upload GenExcel.xlsx", type=["xlsx"], key="template_config")
+        1. Download the **GenExcel.xlsx template** below
+        2. Fill in your drug names, concentrations, and experiment details  
+        3. Upload the filled template to generate a data entry Excel file
+        4. Fill the data entry file with your experimental results
+        5. Save it as `RawInput.xlsx` and upload in Step 2
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**Download Template:**")
+            genexcel_path = SAMPLES_DIR / "GenExcel.xlsx"
+            if genexcel_path.exists():
+                with open(genexcel_path, "rb") as f:
+                    st.download_button(
+                        "📥 Download GenExcel.xlsx Template",
+                        f,
+                        file_name="GenExcel.xlsx",
+                        key="download_genexcel_template",
+                        help="Empty template for you to fill in"
+                    )
+        
+        with col2:
+            st.markdown("**Download Sample (with example data):**")
+            sample_path = SAMPLES_DIR / "GenExcel_sample.xlsx"
+            if sample_path.exists():
+                with open(sample_path, "rb") as f:
+                    st.download_button(
+                        "📥 Download GenExcel_sample.xlsx",
+                        f,
+                        file_name="GenExcel_sample.xlsx",
+                        key="download_genexcel_sample",
+                        help="Sample file with example data"
+                    )
+        
+        st.markdown("---")
+        st.markdown("**Generate Data Entry Template:**")
+        
+        template_config = st.file_uploader(
+            "Upload your filled GenExcel.xlsx",
+            type=["xlsx"],
+            key="template_config",
+            help="Upload the GenExcel.xlsx file you filled with your drug info"
+        )
         
         if template_config:
-            if st.button("Generate Template", key="gen_template"):
+            if st.button("Generate Data Entry Template", key="gen_template_btn"):
                 try:
                     temp_path = INPUT_DIR / "GenExcel_temp.xlsx"
                     save_uploaded_file(template_config, temp_path)
@@ -123,10 +168,18 @@ def run_pipeline_tab():
                     generate_from_excel(str(temp_path), str(output_path))
                     
                     st.session_state.output_files["template"] = str(output_path)
-                    st.success(f"✅ Template saved!")
+                    st.success("✅ Data entry template generated!")
                     
                     with open(output_path, "rb") as f:
-                        st.download_button("Download Template", f, file_name="drug_combination_results.xlsx")
+                        st.download_button(
+                            "📥 Download drug_combination_results.xlsx",
+                            f,
+                            file_name="drug_combination_results.xlsx",
+                            key="download_template_result",
+                            help="Fill this file with your experimental data"
+                        )
+                    
+                    st.info("💡 Fill the downloaded Excel file with your experimental data, then upload it as RawInput.xlsx in Step 2.")
                 except Exception as e:
                     st.error(f"Error: {str(e)}")
     
@@ -146,14 +199,15 @@ def run_pipeline_tab():
     drug_pairs_input = col1.text_input(
         "Drug Pairs (optional)",
         placeholder="e.g., DrugA:DrugB DrugA:DrugC",
-        help="Leave empty for auto-detection"
+        help="Leave empty for auto-detection",
+        key="drug_pairs_pipeline"
     )
-    heatmap_dpi = col2.slider("Heatmap DPI", min_value=100, max_value=600, value=300)
+    heatmap_dpi = col2.slider("Heatmap DPI", min_value=100, max_value=600, value=300, key="dpi_pipeline")
     
     st.markdown("---")
     
     if raw_input_file:
-        if st.button("🚀 Run Full Pipeline", type="primary", use_container_width=True):
+        if st.button("🚀 Run Full Pipeline", type="primary", use_container_width=True, key="run_pipeline_btn"):
             run_full_pipeline(raw_input_file, drug_pairs_input, heatmap_dpi)
     else:
         st.info("👆 Please upload RawInput.xlsx to start the pipeline.")
@@ -249,7 +303,7 @@ def display_results():
             with cols[i % 3]:
                 st.markdown(f"**{display_name}**")
                 with open(path, "rb") as f:
-                    st.download_button(f"📥 {filename}", f, file_name=filename, key=f"dl_{key}")
+                    st.download_button(f"📥 {filename}", f, file_name=filename, key=f"dl_results_{key}")
     
     heatmap_path = st.session_state.output_files.get("heatmap")
     if heatmap_path and Path(heatmap_path).exists():
@@ -295,17 +349,17 @@ def upload_data_tab():
     st.markdown("---")
     
     col1, col2 = st.columns(2)
-    drug_pairs_input = col1.text_input("Drug Pairs (optional)", placeholder="DrugA:DrugB")
+    drug_pairs_input = col1.text_input("Drug Pairs (optional)", placeholder="DrugA:DrugB", key="drug_pairs_upload")
     start_step = col2.selectbox("Start from step:", [
         "Step 2: Calculate % Inhibition",
         "Step 3: Convert to SynergyFinder", 
         "Step 4: Calculate Synergy",
         "Step 5: Generate Heatmap"
-    ])
+    ], key="start_step_select")
     
-    heatmap_dpi = st.slider("Heatmap DPI", min_value=100, max_value=600, value=300)
+    heatmap_dpi = st.slider("Heatmap DPI", min_value=100, max_value=600, value=300, key="dpi_upload")
     
-    if st.button("▶️ Run from Selected Step", type="primary"):
+    if st.button("▶️ Run from Selected Step", type="primary", key="run_from_step_btn"):
         run_from_step(raw_file, perc_file, syn_file, block_file, drug_pairs_input, start_step, heatmap_dpi)
     
     if st.session_state.pipeline_complete:
