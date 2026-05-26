@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  jukjik-app:
+    build: .
+    image: jukjik_v1_app2:latest
+    container_name: jukjik_denv_analysis
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data/input:/app/data/input
+      - ./data/output:/app/data/output
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
