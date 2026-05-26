@@ -213,7 +213,7 @@ def run_pipeline_tab():
         st.info("👆 Please upload RawInput.xlsx to start the pipeline.")
     
     if st.session_state.pipeline_complete:
-        display_results()
+        display_results(key_prefix="pipeline_")
 
 
 def run_full_pipeline(raw_input_file, drug_pairs_input, dpi):
@@ -281,7 +281,7 @@ def run_full_pipeline(raw_input_file, drug_pairs_input, dpi):
         st.exception(e)
 
 
-def display_results():
+def display_results(key_prefix=""):
     st.markdown("---")
     st.markdown("## 📊 Results")
     
@@ -303,7 +303,7 @@ def display_results():
             with cols[i % 3]:
                 st.markdown(f"**{display_name}**")
                 with open(path, "rb") as f:
-                    st.download_button(f"📥 {filename}", f, file_name=filename, key=f"dl_results_{key}")
+                    st.download_button(f"📥 {filename}", f, file_name=filename, key=f"{key_prefix}dl_results_{key}")
     
     heatmap_path = st.session_state.output_files.get("heatmap")
     if heatmap_path and Path(heatmap_path).exists():
@@ -363,7 +363,7 @@ def upload_data_tab():
         run_from_step(raw_file, perc_file, syn_file, block_file, drug_pairs_input, start_step, heatmap_dpi)
     
     if st.session_state.pipeline_complete:
-        display_results()
+        display_results(key_prefix="upload_")
 
 
 def run_from_step(raw_file, perc_file, syn_file, block_file, drug_pairs_input, start_step, dpi):
